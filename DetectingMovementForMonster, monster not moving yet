@@ -1,0 +1,293 @@
+// maze-monster.cpp : Beginnings of a simple maze game
+//
+// Press Q key to quit, numbers on keypad to move
+
+// --- Format of Maze file:
+// Two integers for size of maze:
+//    Number of columns (x), then number of rows (y)
+// Then a bunch of characters drawing the maze
+// One line (row) at a time
+//    X means wall
+//    E means End, or Exit of the maze (multiple okay)
+//    P means Player location
+//    M means Monster location
+//    . or any other non-space character means blanks space
+//    Avoid spaces, so we can read one character at a time
+
+#include "graphics.h"
+
+#include <iostream>
+#include <string>
+#include <fstream>
+using namespace std;
+
+// Largest Maze Size
+const int MAX_SIZE = 100;
+
+const int WINDOW_X = 800;
+const int WINDOW_Y = 800;
+
+struct MazeLocation {
+    int x;
+    int y;
+};
+
+enum MazeContent { EMPTY, WALL, EXIT };
+
+// Global Variables for drawing maze - boxsize
+int gBoxSize = 20;
+int gBoxOffsetX = 10;
+int gBoxOffsetY = 10;
+
+
+void drawBox(int x, int y, int color);
+
+int main()
+{
+    static int WALL_COLOR = BLUE;
+    static int EMPTY_COLOR = WHITE;
+    static int EXIT_COLOR = LIGHTGREEN;
+    static int PLAYER_COLOR = CYAN;
+    static int MONSTER_COLOR = RED;
+
+
+    // Variable needed for opening file
+    ifstream inputFile;
+    string filename = "maze0.txt";
+    int numColumns, numRows;
+    char keyPressed;
+
+    // The big array that holds the maze
+    MazeContent maze[MAX_SIZE][MAX_SIZE];
+
+    // Open the file.
+    inputFile.open(filename);
+
+    if (!inputFile) {
+        cout << "Error opening file " << filename << ".txt" << endl;
+        exit(1);
+    }
+
+    // Open a graphics window size 800 pixels wide x 600 pixels high
+    initwindow(WINDOW_X, WINDOW_Y);
+    setbkcolor(EMPTY_COLOR);
+    cleardevice();
+
+    // Read two integers from the file
+    // number of columns (X) and rows (Y)
+    inputFile >> numColumns >> numRows;
+
+    // Calculate box size and offset, based on size of maze
+    gBoxSize = ((WINDOW_X > WINDOW_Y ? WINDOW_X : WINDOW_Y) - 40) /
+        (numRows > numColumns ? numRows : numColumns);
+    gBoxOffsetX = (WINDOW_X - ((numColumns)*gBoxSize)) / 2;
+    gBoxOffsetY = (WINDOW_Y - ((numRows)*gBoxSize)) / 2;
+
+    MazeLocation player = { 1, 1 };
+    MazeLocation playerPrev = { 1, 1 };
+
+    MazeLocation monster = { 4, 4 };
+    MazeLocation monsterPrev = { 3, 3 };
+
+    MazeLocation exit = { 10, 10 };
+
+
+
+    // Read the maze, store values in array, and display
+    for (int y = 0; y < numRows; y++) {
+        for (int x = 0; x < numColumns; x++) {
+            char nextChar;
+            inputFile >> nextChar;
+            if (nextChar == 'X' || nextChar == 'x') {
+                maze[x][y] = WALL;
+                drawBox(x, y, WALL_COLOR);
+            }
+            else if (nextChar == 'E' || nextChar == 'e') {
+                maze[x][y] = EXIT;
+                drawBox(x, y, EXIT_COLOR);
+                exit.x = x;
+                exit.y = y;
+            }
+            else if (nextChar == 'P' || nextChar == 'p') {
+                player.x = x;
+                player.y = y;
+                playerPrev.x = x;
+                playerPrev.y = y;
+                maze[x][y] = EMPTY;
+            }
+            else if (nextChar == 'M' || nextChar == 'm') {
+                monster.x = x;
+                monster.y = y;
+                monsterPrev.x = x;
+                monsterPrev.y = y;
+                maze[x][y] = EMPTY;
+            }
+
+            else {
+                // Anything else is blank
+                maze[x][y] = EMPTY;
+                drawBox(x, y, EMPTY_COLOR);
+            }
+        }
+    }
+
+    cout << player.x << endl;
+    cout << player.y << endl;
+    cout << monster.x << endl;
+    cout << monster.y << endl;
+    // Close the file.
+    inputFile.close();
+
+    // Set up Main Loop variables
+    bool keepGoing = true;
+    bool somethingMoved = true;
+
+    // Main Loop - Keep running until user quits (while keepGoing is true)
+    while (keepGoing) {
+
+        // ---- Check to see if a key has been pressed ----
+        if (kbhit()) {
+            keyPressed = getch();
+            MazeLocation attempt;
+            MazeLocation attempt2;
+
+            // Q or ESC pressed
+            if (keyPressed == 'q' || keyPressed == 'Q' || keyPressed == 0x1b) {
+                keepGoing = false;
+            }
+
+            if (keyPressed == '2' || keyPressed == '4' || keyPressed == '6' || keyPressed == '8') {
+                // Attempt to move player
+                attempt = player; // Set attempt to current player location
+                attempt2 = monster; // Set attempt2 to current monster location
+
+                if (keyPressed == '4') {
+                    attempt.x--; // 4 - Left
+                }
+                if (keyPressed == '6') {
+                    attempt.x++; // 6 - Right
+                }
+                if (keyPressed == '8') {
+                    attempt.y--; // 8 - Up
+                }
+                if (keyPressed == '2') {
+                    attempt.y++; // 2 - Down
+                }
+
+                // If that location is empty, go there
+                if (maze[attempt.x][attempt.y] == EMPTY) {
+                    // Remember current position
+                    playerPrev.x = player.x;
+                    playerPrev.y = player.y;
+
+                    player = attempt;
+                    somethingMoved = true;
+                }
+                if (maze[attempt2.x][attempt2.y] == EMPTY) {
+
+                    // Remember previous position
+                    monsterPrev.x = monster.x;
+                    monsterPrev.y = monster.y;
+
+                    // Set new position to current position 
+                    monster = attempt2;
+                    somethingMoved = true;
+                }
+
+            }
+
+
+
+
+        }//end if kbhit()
+
+        // Redraw positions if something moved
+        if (somethingMoved) {
+            drawBox(playerPrev.x, playerPrev.y, EMPTY_COLOR);
+            drawBox(player.x, player.y, PLAYER_COLOR);
+
+            drawBox(monsterPrev.x, monsterPrev.y, EMPTY_COLOR);
+            drawBox(monster.x, monster.y, MONSTER_COLOR);
+
+            somethingMoved = false;
+        }
+
+        // ---- Check to see if a mouse was clicked ----
+        if (ismouseclick(WM_LBUTTONUP)) {
+            int mouseX, mouseY;
+            int mazeX, mazeY;
+            getmouseclick(WM_LBUTTONUP, mouseX, mouseY);
+
+            mazeX = (mouseX - gBoxOffsetX) / gBoxSize;
+            mazeY = (mouseY - gBoxOffsetY) / gBoxSize;
+
+            // If they clicked inside of the maze
+            if (mazeX < numColumns && mazeX >= 0 && mazeY < numRows && mazeY >= 0) {
+                // Cycle between Wall-->Empty-->Exit-->Wall
+                if (maze[mazeX][mazeY] == WALL) {
+                    maze[mazeX][mazeY] = EMPTY;
+                    drawBox(mazeX, mazeY, EMPTY_COLOR);
+                }
+                else if (maze[mazeX][mazeY] == EMPTY) {
+                    maze[mazeX][mazeY] = EXIT;
+                    drawBox(mazeX, mazeY, EXIT_COLOR);
+                }
+                else {
+                    maze[mazeX][mazeY] = WALL;
+                    drawBox(mazeX, mazeY, WALL_COLOR);
+                }
+            }
+        }//end if ismouseclick()
+
+        /*
+         if the Player gets to the Exit or runs in to the Monster.
+         For now, just end the game with the following code if either of those things happen:
+        */
+
+        // if player x and y is the same as exit x and y && player x and y is the same as monster x and y
+
+        // /*
+        if ((player.x == monster.x) && (player.y == monster.y)) {
+            setcolor(PLAYER_COLOR);
+            settextstyle(DEFAULT_FONT, HORIZ_DIR, 3);
+            outtextxy(50, 50, (char*)"GAME OVER, Press any key");
+            keepGoing = false;
+            getch();
+        }
+        else if ((player.x == exit.x) && (player.y == exit.y)) {
+            setcolor(PLAYER_COLOR);
+            settextstyle(DEFAULT_FONT, HORIZ_DIR, 3);
+            outtextxy(50, 50, (char*)"GAME OVER, Press any key");
+            keepGoing = false;
+            getch();
+        }
+
+
+        // */
+
+        delay(100);
+    } // end while keepGoing
+
+
+    closegraph(); // shut down the graphics window
+    return 0;
+} // end main()
+
+
+// Translate maze X and Y coordinates to screen coordinates
+// then draw a box with the given color at that location
+void drawBox(int mazeX, int mazeY, int color) {
+    int screenX = mazeX * gBoxSize + gBoxOffsetX;
+    int screenY = mazeY * gBoxSize + gBoxOffsetY;
+
+    setcolor(color);
+    setfillstyle(SOLID_FILL, color);
+
+    //Draw box, and maybe outline, if box is big enough
+    bar(screenX, screenY, screenX + gBoxSize, screenY + gBoxSize);
+
+    if (gBoxSize > 15) {
+        setcolor(BLACK);
+        rectangle(screenX, screenY, screenX + gBoxSize, screenY + gBoxSize);
+    }
+}
